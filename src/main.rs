@@ -35,15 +35,21 @@ fn main() {
     }
 
     let real_command = format!("{} {}", real_command, &command[1]);
-    log(format!("Received command: '{}'", real_command));
+    log(&format!("Received command: '{}'", real_command));
 
-    let output = Command::new("git-shell")
+    let mut child_process = Command::new("git-shell")
     	.arg("-c")
     	.arg(real_command)
     	.spawn()
     	.unwrap_or_else(|e| {
-	    	exit("Failed to run command");
+	    	exit(&format!("Failed to spawn child process: '{}'", e));
 	    });
+
+    child_process
+    	.wait()
+    	.unwrap_or_else(|e| {
+    		exit(&format!("Failed to wait on child process: '{}'", e));
+    	});
 }
 
 fn log(message: &str) {
