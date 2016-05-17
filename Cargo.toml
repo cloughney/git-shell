@@ -1,0 +1,6 @@
+[package]
+name = "git-shell"
+version = "0.1.0"
+authors = ["= <chris@chrisloughney.com>"]
+
+[dependencies]
