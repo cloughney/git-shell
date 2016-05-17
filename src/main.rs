@@ -19,7 +19,6 @@ fn main() {
     	Ok(value) => value,
     	Err(_) => exit("SSH_ORIGINAL_COMMAND is empty.")
     };
-    //let command = "git-upload-pack something";
 
     let command: Vec<&str> = command.split(" ").collect();
     if command.len() != 2 {
@@ -35,11 +34,16 @@ fn main() {
     	}
     }
 
-    let output = Command::new(real_command).arg(&command[1]).output().unwrap_or_else(|e| {
-    	exit("Failed to run command");
-    });
+    let real_command = format!("{} {}", real_command, &command[1]);
+    log(format!("Received command: '{}'", real_command));
 
-    println!("{}", String::from_utf8_lossy(&output.stdout));
+    let output = Command::new("git-shell")
+    	.arg("-c")
+    	.arg(real_command)
+    	.spawn()
+    	.unwrap_or_else(|e| {
+	    	exit("Failed to run command");
+	    });
 }
 
 fn log(message: &str) {
