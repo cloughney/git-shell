@@ -1,69 +1,44 @@
-use std::env;
+extern crate chrono;
+
 use std::process;
 use std::process::Command;
-use std::fs::OpenOptions;
-use std::fs::File;
-use std::io::prelude::*;
+
+mod log;
+mod validation;
+
 
 fn main() {
-	let valid_commands = vec!["git-upload-pack", "git-receive-pack", "git-upload-archive"];
-
-	let args: Vec<String> = env::args().collect();
-	if args.len() < 2 {
-		exit("Incorrect number of arguments passed.");
-	}
-
-	let user = &args[1];
-	
-    let command = match env::var("SSH_ORIGINAL_COMMAND") {
-    	Ok(value) => value,
-    	Err(_) => exit("SSH_ORIGINAL_COMMAND is empty.")
+	let args: Vec<String> = std::env::args().collect();
+	let command = match option_env!("SSH_ORIGINAL_COMMAND") {
+    	Some(value) => value,
+    	None => exit("SSH_ORIGINAL_COMMAND does not exist.")
     };
 
-    let command: Vec<&str> = command.split(" ").collect();
-    if command.len() != 2 {
-    	panic!("Incoming command was wrong and junk.");
-    }
+	let input: validation::ValidatedInput = 
+		match validation::InputValidator::new()
+			.arguments(args)
+			.incoming_command(command)
+			.validate() {
+			Ok(input) => input,
+			Err(message) => exit(&message)
+		};
 
-    let mut real_command = "";
-
-    for valid_command in &valid_commands {
-    	if valid_command == &command[0] {
-    		real_command = valid_command;
-    		break;
-    	}
-    }
-
-    let real_command = format!("{} {}", real_command, &command[1]);
-    log(&format!("Received command: '{}'", real_command));
-
-    let mut child_process = Command::new("git-shell")
+    let mut shell_process = Command::new("git-shell")
     	.arg("-c")
-    	.arg(real_command)
+    	.arg(input.original_command)
     	.spawn()
     	.unwrap_or_else(|e| {
-	    	exit(&format!("Failed to spawn child process: '{}'", e));
+	    	exit(&format!("Failed to spawn git shell process: '{}'", e));
 	    });
 
-    child_process
+    shell_process
     	.wait()
     	.unwrap_or_else(|e| {
-    		exit(&format!("Failed to wait on child process: '{}'", e));
+    		exit(&format!("Failed to wait on git shell process: '{}'", e));
     	});
 }
 
-fn log(message: &str) {
-	let mut file = OpenOptions::new()
-		.create(true)
-		.append(true)
-		.open("git-shell.log")
-		.expect("Failed to open log file");
-
-	writeln!(file, "{}", message)
-		.expect("Failed to write to log file");
-}
-
 fn exit(message: &str) -> ! {
-	log(message);
+	log::debug(message);
 	process::exit(0);
 }
