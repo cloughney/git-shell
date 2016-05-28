@@ -1,3 +1,5 @@
+use std::fs;
+
 pub struct ValidatedInput {
 	pub original_command: String,
 	pub command: String,
@@ -90,5 +92,16 @@ fn validate_command(command: &str) -> Result<(String, String), String> {
 }
 
 fn validate_repo(repository: &str) -> Result<String, String> {
-	Ok(repository.to_string())
+	let len = repository.len();
+	let clean_repo = &repository.clone()[1..len-1];
+
+	if clean_repo.starts_with("/") {
+		return Err(format!("Git repository may not be an absolute path. '{}'", clean_repo));
+	}
+
+	if let Err(_) = fs::metadata(&clean_repo) {
+		return Err(format!("Invalid git repository. '{}'", clean_repo));
+	}
+
+	Ok(clean_repo.to_string())
 }
